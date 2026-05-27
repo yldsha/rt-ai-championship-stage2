@@ -1,1 +1,0 @@
-# rt-ai-championship-stage2
