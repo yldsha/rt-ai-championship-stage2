@@ -1,0 +1,6 @@
+sentence-transformers
+numpy
+rank-bm25
+streamlit
+plotly
+requests
