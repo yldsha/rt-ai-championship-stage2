@@ -11,6 +11,7 @@ Output format is JSONL where each line is a chunk object ready for RAG indexing.
 from __future__ import annotations
 
 import ast
+
 from chunk import Chunk
 
 class ASTChunkCollector(ast.NodeVisitor):
@@ -68,6 +69,7 @@ class ASTChunkCollector(ast.NodeVisitor):
             Chunk(
                 chunk_id=chunk_id,
                 path=self.module_path,
+                language="python",
                 symbol=symbol,
                 chunk_type=chunk_type,
                 start_line=start_line,

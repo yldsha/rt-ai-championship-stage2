@@ -1,6 +1,5 @@
 import json
 import argparse
-from pathlib import Path
 import chromadb
 import sentence_transformers
 
