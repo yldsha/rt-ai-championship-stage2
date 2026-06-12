@@ -35,3 +35,7 @@ RAG/chunks_ast.jsonl - json-файл, содержащий чанки фукнц
 Запуск: `python3 RAG/generate_embeddings.py`
 
 ### БД (Дима)
+
+Модифицировал generate_embeddings
+Теперь эмбеддинги сохраняются не в json, а в chroma db (папка RAG/chroma_db/)
+В main.py - заготовка того, как работать с бд
