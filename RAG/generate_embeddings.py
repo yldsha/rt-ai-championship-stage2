@@ -4,16 +4,13 @@
 """
 
 import json
-import pickle
 from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 import chromadb
 
 MODEL_NAME = "BAAI/bge-m3"             
-CHUNKS_FILE = Path("RAG/chunks_ast.jsonl")
-OUTPUT_JSON = Path("RAG/embeddings.json")
-OUTPUT_PKL = Path("RAG/embeddings_list.pkl")
+CHUNKS_FILE = Path("RAG/chunks.jsonl")
 CHROMA_DB_DIR = "RAG/chroma_db"
 COLLECTION_NAME = "gymhero_code"
 
