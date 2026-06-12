@@ -6,8 +6,8 @@ attempts to extract leading JSDoc comments as docstrings.
 """
 
 from __future__ import annotations
-
 from pathlib import Path
+
 from tree_sitter_languages import get_language, get_parser
 
 from chunk import Chunk
@@ -102,6 +102,7 @@ def parse_javascript(
             Chunk(
                 chunk_id=chunk_id,
                 path=module_path,
+                language=lang_name,
                 symbol=symbol,
                 chunk_type=chunk_type,
                 start_line=start_line,
