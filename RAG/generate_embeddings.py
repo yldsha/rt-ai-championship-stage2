@@ -8,21 +8,20 @@ import pickle
 from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
+import chromadb
 
 MODEL_NAME = "BAAI/bge-m3"             
 CHUNKS_FILE = Path("RAG/chunks_ast.jsonl")
 OUTPUT_JSON = Path("RAG/embeddings.json")
 OUTPUT_PKL = Path("RAG/embeddings_list.pkl")
+CHROMA_DB_DIR = "RAG/chroma_db"
+COLLECTION_NAME = "gymhero_code"
 
 def get_embedding(text: str, model: SentenceTransformer) -> list:
     """
     Превращает текст в список чисел (эмбеддинг)
     """
-    
-    # Генерируем эмбеддинг
     embedding = model.encode(text, normalize_embeddings=True)
-    
-    # Превращаем numpy-массив в обычный список
     return embedding.tolist()
 
 
@@ -30,7 +29,6 @@ def main():
     print(f"Загрузка модели {MODEL_NAME}...")
     model = SentenceTransformer(MODEL_NAME)
     
-    # Читаем чанки из JSONL
     print(f"Чтение чанков из {CHUNKS_FILE}...")
     chunks = []
     with open(CHUNKS_FILE, "r", encoding="utf-8") as f:
@@ -40,11 +38,21 @@ def main():
     
     print(f"Загружено {len(chunks)} чанков")
     
-    # Генерируем эмбеддинги
     print("Генерация эмбеддингов...")
-    embeddings_list = []
     
-    for chunk in tqdm(chunks):
+    # Инициализация ChromaDB
+    chroma_client = chromadb.PersistentClient(path=CHROMA_DB_DIR)
+    collection = chroma_client.get_or_create_collection(
+        name=COLLECTION_NAME,
+        metadata={"hnsw:space": "cosine"}
+    )
+    
+    ids = []
+    documents = []
+    embeddings = []
+    metadatas = []
+    
+    for i, chunk in enumerate(tqdm(chunks)):
         # Собираем текст для эмбеддинга
         text_parts = []
         if chunk.get("docstring"):
@@ -60,24 +68,34 @@ def main():
         
         embedding = get_embedding(text, model)
         
-        embeddings_list.append({
-            "chunk": chunk,
-            "embedding": embedding
-        })
+        # Получаем ID чанка или генерируем новый
+        chunk_id = chunk.get("chunk_id", str(i))
+        
+        # Фильтруем метадату для ChromaDB (только str, int, float, bool)
+        meta = {}
+        for k, v in chunk.items():
+            if k not in ["code", "docstring"] and isinstance(v, (str, int, float, bool)):
+                meta[k] = v
+        
+        ids.append(chunk_id)
+        documents.append(text)
+        embeddings.append(embedding)
+        metadatas.append(meta)
+
+    # Сохраняем в ChromaDB батчами
+    print(f"Сохранение эмбеддингов в ChromaDB (папка {CHROMA_DB_DIR})...")
+    batch_size = 100
+    for i in tqdm(range(0, len(ids), batch_size)):
+        collection.add(
+            ids=ids[i:i+batch_size],
+            documents=documents[i:i+batch_size],
+            embeddings=embeddings[i:i+batch_size],
+            metadatas=metadatas[i:i+batch_size]
+        )
     
-    # Сохраняем в JSON
-    print(f"Сохранение в {OUTPUT_JSON}...")
-    with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
-        json.dump(embeddings_list, f, ensure_ascii=False, indent=2)
-    
-    # Сохраняем в pickle
-    print(f"Сохранение в {OUTPUT_PKL}...")
-    with open(OUTPUT_PKL, "wb") as f:
-        pickle.dump(embeddings_list, f)
-    
-    print(f"Готово! Сгенерировано {len(embeddings_list)} эмбеддингов.")
-    if embeddings_list:
-        print(f"Размерность эмбеддинга: {len(embeddings_list[0]['embedding'])}")
+    print(f"Готово! Сгенерировано и сохранено {len(ids)} эмбеддингов в ChromaDB.")
+    if embeddings:
+        print(f"Размерность эмбеддинга: {len(embeddings[0])}")
 
 
 if __name__ == "__main__":
