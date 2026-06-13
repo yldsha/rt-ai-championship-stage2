@@ -6,6 +6,8 @@ from chunk import Chunk
 
 def normalize_module_path(file_path: Path, source_root: Path, project_prefix: str) -> str:
     relative = file_path.relative_to(source_root)
+    if project_prefix == source_root.name or not project_prefix:
+        return relative.as_posix()
     return f"{project_prefix}/{relative.as_posix()}"
 
 def write_jsonl(chunks: list[Chunk], output_path: Path) -> None:

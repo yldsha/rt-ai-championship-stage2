@@ -1,4 +1,4 @@
-data/
+dataset/
 
 results.json
 *.db

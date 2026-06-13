@@ -5,8 +5,8 @@ import sentence_transformers
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate RAG")
-    parser.add_argument("--questions", type=str, default="data/eval_questions.json", help="Path to evaluation questions file")
-    parser.add_argument("--output", type=str, default="RAG/results.json", help="Path to output results file")
+    parser.add_argument("--questions", type=str, default="accuracy_checking/eval_questions.json", help="Path to evaluation questions file")
+    parser.add_argument("--output", type=str, default="accuracy_checking/results.json", help="Path to output results file")
     args = parser.parse_args()
 
     model = sentence_transformers.SentenceTransformer("BAAI/bge-m3")

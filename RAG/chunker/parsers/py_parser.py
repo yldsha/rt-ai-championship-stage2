@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import ast
 
-from chunk import Chunk
+from chunker.chunk import Chunk
 
 class ASTChunkCollector(ast.NodeVisitor):
     """Collect class/function/method chunks from a parsed module AST."""
