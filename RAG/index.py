@@ -13,6 +13,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 import torch
+import json
 from sentence_transformers import SentenceTransformer
 import chromadb
 import dataclasses
@@ -183,6 +184,13 @@ def main() -> int:
             torch.mps.empty_cache()
     
     print(f"\nDone! Successfully processed and saved {len(all_chunks)} chunks.")
+
+    # Сохраняем тексты для BM25, чтобы поиск работал по точным словам
+    texts_for_bm25 = [chunk_to_dict(c).get('code', '') for c in all_chunks]
+    with open("bm25_corpus.json", "w", encoding="utf-8") as f:
+        json.dump(texts_for_bm25, f)
+    print("Корпус для BM25 успешно сохранен.")
+
     return 0
 
 
