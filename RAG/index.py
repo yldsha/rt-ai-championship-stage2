@@ -11,6 +11,7 @@ Usage:
 import argparse
 from pathlib import Path
 from tqdm import tqdm
+import time
 
 import torch
 import json
@@ -74,6 +75,8 @@ def chunk_to_dict(chunk: Chunk) -> dict:
 
 
 def main() -> int:
+    start_time = time.time()
+
     args = parse_args()
     source_root = args.source_root.resolve()
 
@@ -182,14 +185,12 @@ def main() -> int:
 
         if torch.backends.mps.is_available():
             torch.mps.empty_cache()
+
+    end_time = time.time()
+
     
     print(f"\nDone! Successfully processed and saved {len(all_chunks)} chunks.")
-
-    # Сохраняем тексты для BM25, чтобы поиск работал по точным словам
-    texts_for_bm25 = [chunk_to_dict(c).get('code', '') for c in all_chunks]
-    with open("bm25_corpus.json", "w", encoding="utf-8") as f:
-        json.dump(texts_for_bm25, f)
-    print("Корпус для BM25 успешно сохранен.")
+    print(f"Time: {end_time - start_time}")
 
     return 0
 

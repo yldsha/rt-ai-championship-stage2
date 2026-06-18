@@ -1,7 +1,8 @@
 import json
 import argparse
-import chromadb
-import sentence_transformers
+
+from RAG.searcher import HybridSearcher
+
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate RAG")
@@ -9,10 +10,7 @@ def main():
     parser.add_argument("--output", type=str, default="accuracy_checking/results.json", help="Path to output results file")
     args = parser.parse_args()
 
-    model = sentence_transformers.SentenceTransformer("BAAI/bge-m3")
-
-    client = chromadb.PersistentClient(path="RAG/chroma_db")
-    collection = client.get_collection("gymhero_code")
+    searcher = HybridSearcher()
 
     with open(args.questions, "r", encoding="utf-8") as f:
         queries = json.load(f)
@@ -21,16 +19,14 @@ def main():
     
     for q in queries:
         q_id = q["question_id"]
-        query_text = q["query"]
+        query = q["query"]
         
-        query_vector = model.encode(query_text).tolist()
+        results = searcher.search(query, alpha=0.8, top_k=5)
+        chunks = []
 
-        db_results = collection.query(
-            query_embeddings=[query_vector],
-            n_results=5,
-        )
+        for (score, chunk) in results:
+            chunks.append(chunk["chunk_id"])
         
-        chunks = db_results['ids'][0]
         output_results.append({
             "question_id": q_id,
             "top_5_chunks": chunks

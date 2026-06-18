@@ -1,4 +1,4 @@
-from RAG.searcher import HybridSearcher
+from ..RAG.searcher import HybridSearcher
 
 def run_test():
     # Инициализируем наш поисковик
@@ -10,6 +10,8 @@ def run_test():
     # Проверяем гибридный поиск (alpha=0.5 — баланс 50/50)
     print(f"--- Тестируем запрос: '{query}' ---")
     results = searcher.search(query, alpha=0.5, top_k=3)
+
+    print(results)
     
     for i, (score, chunk) in enumerate(results):
         print(f"\nРезультат #{i+1} (Score: {score:.4f})")
