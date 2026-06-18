@@ -4,7 +4,7 @@ Router for mapping file extensions to their corresponding syntax parsers.
 
 from pathlib import Path
 
-from chunk import Chunk
+from chunker.chunk import Chunk
 import chunker.utils
 from chunker.parsers.jsts_parser import parse_javascript
 from chunker.parsers.py_parser import parse_python
