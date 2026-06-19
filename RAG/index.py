@@ -9,18 +9,17 @@ Usage:
 """
 
 import argparse
-from pathlib import Path
-from tqdm import tqdm
-
-import torch
-import json
-from sentence_transformers import SentenceTransformer
-import chromadb
 import dataclasses
+import json
+from pathlib import Path
 
-from chunker.router import collect_chunks_for_file, get_supported_extensions
-from chunker.chunk import Chunk
+import chromadb
 import chunker.utils
+import torch
+from chunker.chunk import Chunk
+from chunker.router import collect_chunks_for_file, get_supported_extensions
+from sentence_transformers import SentenceTransformer
+from tqdm import tqdm
 
 # configurations
 MODEL_NAME = "BAAI/bge-m3"
@@ -33,6 +32,7 @@ def get_embedding(text: str, model: SentenceTransformer) -> list:
     embedding = model.encode(text, normalize_embeddings=True)
     return embedding.tolist()
 
+
 def get_embeddings(texts: list[str], model: SentenceTransformer) -> list[list[float]]:
     """Generates embedding vectors for a list of text strings (batch processing)."""
     embeddings = model.encode(texts, normalize_embeddings=True)
@@ -42,7 +42,9 @@ def get_embeddings(texts: list[str], model: SentenceTransformer) -> list[list[fl
 def parse_args() -> argparse.Namespace:
     """Parses command line arguments."""
 
-    parser = argparse.ArgumentParser(description="Multi-language code chunker and indexer for RAG")
+    parser = argparse.ArgumentParser(
+        description="Multi-language code chunker and indexer for RAG"
+    )
     # Делаем папку позиционным обязательным аргументом
     parser.add_argument(
         "source_root",
@@ -78,7 +80,9 @@ def main() -> int:
     source_root = args.source_root.resolve()
 
     if not source_root.exists() or not source_root.is_dir():
-        raise FileNotFoundError(f"Source root does not exist or is not a directory: {source_root}")
+        raise FileNotFoundError(
+            f"Source root does not exist or is not a directory: {source_root}"
+        )
 
     project_prefix = args.project_prefix or source_root.name
 
@@ -87,7 +91,7 @@ def main() -> int:
     all_chunks: list[Chunk] = []
 
     supported_exts = get_supported_extensions()
-    
+
     for file_path in sorted(chunker.utils.iter_files(source_root, supported_exts)):
         try:
             file_chunks = collect_chunks_for_file(
@@ -101,7 +105,7 @@ def main() -> int:
             continue
 
     print(f"Successfully extracted {len(all_chunks)} semantic chunks")
-    
+
     if not all_chunks:
         print("Chunks not found. Indexing cancelled.")
         return 0
@@ -112,7 +116,7 @@ def main() -> int:
 
     print(f"\nLoading model {MODEL_NAME}...")
     model = SentenceTransformer(MODEL_NAME)
-    
+
     print(f"Connecting to ChromaDB (folder {CHROMA_DB_DIR})...")
     chroma_client = chromadb.PersistentClient(path=CHROMA_DB_DIR)
 
@@ -123,70 +127,77 @@ def main() -> int:
         pass
 
     collection = chroma_client.get_or_create_collection(
-        name=COLLECTION_NAME,
-        metadata={"hnsw:space": "cosine"}
+        name=COLLECTION_NAME, metadata={"hnsw:space": "cosine"}
     )
 
     print("\nGenerating embeddings and saving to ChromaDB in batches...")
-    
-    batch_size = 8 
-    
-    for i in tqdm(range(0, len(all_chunks), batch_size)):
 
+    batch_size = 8
+
+    for i in tqdm(range(0, len(all_chunks), batch_size)):
         batch_chunks = all_chunks[i : i + batch_size]
-        
+
         batch_ids = []
         batch_texts = []
         batch_metadatas = []
-        
+
         for j, chunk_obj in enumerate(batch_chunks):
             chunk = chunk_to_dict(chunk_obj)
-            
+
             # Context Injection
             text_parts = []
-            if chunk.get("path"): text_parts.append(f"File: {chunk['path']}")
-            if chunk.get("language"): text_parts.append(f"Language: {chunk['language']}")
-            if chunk.get("symbol"): text_parts.append(f"{chunk['chunk_type'].capitalize()}: {chunk['symbol']}")
-            
-            docstring = f"\nDescription: {chunk['docstring']}" if chunk.get("docstring") else ""
+            if chunk.get("path"):
+                text_parts.append(f"File: {chunk['path']}")
+            if chunk.get("language"):
+                text_parts.append(f"Language: {chunk['language']}")
+            if chunk.get("symbol"):
+                text_parts.append(
+                    f"{chunk['chunk_type'].capitalize()}: {chunk['symbol']}"
+                )
+
+            docstring = (
+                f"\nDescription: {chunk['docstring']}" if chunk.get("docstring") else ""
+            )
             code_body = f"\nCode:\n{chunk.get('code', '')}"
-            
+
             enriched_text = f"{", ".join(text_parts)}{docstring}{code_body}".strip()
-            
+
             # если код пустой (бывает при сбоях парсера), делаем фоллбэк
             if not enriched_text:
                 enriched_text = chunk.get("code", "empty chunk")
-                
+
             # собираем чистую метадату
             meta = {}
             for k, v in chunk.items():
-                if k not in ["code", "docstring"] and isinstance(v, (str, int, float, bool)):
+                if k not in ["code", "docstring"] and isinstance(
+                    v, (str, int, float, bool)
+                ):
                     meta[k] = v
-            
+
             # уникальный ID чанка
             global_idx = i + j
             chunk_id = chunk.get("chunk_id", str(global_idx))
-            
+
             batch_ids.append(chunk_id)
             batch_texts.append(enriched_text)
             batch_metadatas.append(meta)
-            
+
         batch_embeddings = get_embeddings(batch_texts, model)
-        
+
         collection.add(
             ids=batch_ids,
             documents=batch_texts,
             embeddings=batch_embeddings,
-            metadatas=batch_metadatas
+            metadatas=batch_metadatas,
         )
 
         if torch.backends.mps.is_available():
             torch.mps.empty_cache()
-    
+
     print(f"\nDone! Successfully processed and saved {len(all_chunks)} chunks.")
 
     # Сохраняем тексты для BM25, чтобы поиск работал по точным словам
-    texts_for_bm25 = [chunk_to_dict(c).get('code', '') for c in all_chunks]
+    texts_for_bm25 = [chunk_to_dict(c).get("code", "") for c in all_chunks]
     with open("bm25_corpus.json", "w", encoding="utf-8") as f:
         json.dump(texts_for_bm25, f)
     print("Корпус для BM25 успешно сохранен.")
