@@ -1,0 +1,11 @@
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+
+ignore = ["E701", "E501"]
+select = ["E", "F", "I"] 
+[tool.ruff.format]
+
+quote-style = "double"
+indent-style = "space"
