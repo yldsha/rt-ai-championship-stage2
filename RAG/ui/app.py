@@ -8,20 +8,20 @@ CodeLens RAG — семантический поиск по кодовой ба�
     streamlit run RAG/ui/app.py
 """
 
-import streamlit as st
-from datetime import datetime
-import sys
 import os
+import sys
+from datetime import datetime
 
+import streamlit as st
 
 st.set_page_config(page_title="CodeLens RAG", page_icon="🟢", layout="wide")
 
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from searcher import HybridSearcher
-from metrics_helper import get_precision
-from llm import ask_llm
+from llm import ask_llm  # noqa: E402
+from metrics_helper import get_precision  # noqa: E402
+from searcher import HybridSearcher  # noqa: E402
 
 DEFAULT_MODEL = "bge-m3"
 

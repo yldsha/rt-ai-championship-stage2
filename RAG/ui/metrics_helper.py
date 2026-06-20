@@ -3,10 +3,9 @@
 Использует generate_results.py и score.py для расчета Precision@5
 """
 
-import json
+import os
 import subprocess
 import sys
-import os
 
 # Корень проекта — metrics_helper.py лежит в RAG/ui/,
 # поэтому поднимаемся на два уровня вверх до настоящего корня репозитория
