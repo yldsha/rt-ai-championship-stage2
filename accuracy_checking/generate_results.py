@@ -3,7 +3,7 @@ import argparse
 import sys
 import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "RAG")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from RAG.searcher import HybridSearcher
 
 

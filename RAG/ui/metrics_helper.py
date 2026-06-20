@@ -12,11 +12,8 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 
 
 def get_precision(searcher=None, alpha: float = 0.5):
-    """
-    Генерирует results.json через generate_results.py и запускает score.py.
-    Возвращает (precision: float, debug_log: str)
-    """
     debug_lines = []
+    metrics = {"overall": 0.0, "ru": None, "en": None}
 
     try:
         gen_script = os.path.join(PROJECT_ROOT, "accuracy_checking", "generate_results.py")
@@ -32,11 +29,10 @@ def get_precision(searcher=None, alpha: float = 0.5):
 
         if not os.path.exists(gen_script):
             debug_lines.append(f"ОШИБКА: не найден {gen_script}")
-            return 0.0, "\n".join(debug_lines)
+            return metrics, "\n".join(debug_lines)
         if not os.path.exists(eval_file):
             debug_lines.append(f"ОШИБКА: не найден {eval_file}")
-            return 0.0, "\n".join(debug_lines)
-
+            return metrics, "\n".join(debug_lines)
 
         result_gen = subprocess.run(
             [
@@ -58,11 +54,11 @@ def get_precision(searcher=None, alpha: float = 0.5):
 
         if result_gen.returncode != 0:
             debug_lines.append(f"generate_results.py завершился с кодом {result_gen.returncode}")
-            return 0.0, "\n".join(debug_lines)
+            return metrics, "\n".join(debug_lines)
 
         if not os.path.exists(results_file):
             debug_lines.append(f"ОШИБКА: results.json не был создан по пути {results_file}")
-            return 0.0, "\n".join(debug_lines)
+            return metrics, "\n".join(debug_lines)
 
         result_score = subprocess.run(
             [
@@ -83,17 +79,36 @@ def get_precision(searcher=None, alpha: float = 0.5):
 
         if result_score.returncode != 0:
             debug_lines.append(f"score.py завершился с кодом {result_score.returncode}")
-            return 0.0, "\n".join(debug_lines)
+            return metrics, "\n".join(debug_lines)
 
-        for line in result_score.stdout.split("\n"):
+        in_language_block = False
+
+        for raw_line in result_score.stdout.split("\n"):
+            line = raw_line.strip()
+
             if "Mean Precision@5:" in line or "Total score:" in line:
-                value = float(line.split(":")[-1].strip())
-                debug_lines.append(f"Найдено значение: {value}")
-                return value, "\n".join(debug_lines)
+                metrics["overall"] = float(line.split(":")[-1].strip())
+                continue
 
-        debug_lines.append("Не удалось найти строку с метрикой в выводе score.py")
-        return 0.0, "\n".join(debug_lines)
+            if line.startswith("By language"):
+                in_language_block = True
+                continue
+
+            if in_language_block:
+                if line.startswith("ru:"):
+                    metrics["ru"] = float(line.split(":")[1].strip().split(" ")[0])
+                elif line.startswith("en:"):
+                    metrics["en"] = float(line.split(":")[1].strip().split(" ")[0])
+                elif line == "" or line.startswith("Per-question") or line.startswith("By "):
+                    in_language_block = False
+
+        debug_lines.append(f"Итоговые метрики: {metrics}")
+
+        if metrics["overall"] == 0.0:
+            debug_lines.append("Не удалось найти строку с общей метрикой в выводе score.py")
+
+        return metrics, "\n".join(debug_lines)
 
     except Exception as e:
         debug_lines.append(f"Исключение: {type(e).__name__}: {e}")
-        return 0.0, "\n".join(debug_lines)
+        return metrics, "\n".join(debug_lines)

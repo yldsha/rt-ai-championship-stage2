@@ -4,6 +4,7 @@ import numpy as np
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 
+
 class HybridSearcher:
     def __init__(self, db_path="RAG/chroma_db", chunks_file="RAG/data/chunks.jsonl"):
         # 1 Загрузка данных
