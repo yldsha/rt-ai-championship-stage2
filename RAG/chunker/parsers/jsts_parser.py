@@ -1,11 +1,12 @@
 """JavaScript and TypeScript code chunker based on Tree-sitter.
 
 Extracts classes, top-level functions, and class methods from JS/TS source code
-using tree-sitter grammars. It automatically maps node coordinates and 
+using tree-sitter grammars. It automatically maps node coordinates and
 attempts to extract leading JSDoc comments as docstrings.
 """
 
 from __future__ import annotations
+
 from pathlib import Path
 
 from tree_sitter_languages import get_language, get_parser
@@ -51,7 +52,6 @@ def parse_javascript(
     chunks: list[Chunk] = []
 
     for node, capture_name in captures:
-
         if capture_name == "class":
             chunk_type = "class"
         elif capture_name == "method":
@@ -61,7 +61,9 @@ def parse_javascript(
 
         name_node = node.child_by_field_name("name")
         if name_node:
-            symbol = source_bytes[name_node.start_byte : name_node.end_byte].decode("utf-8")
+            symbol = source_bytes[name_node.start_byte : name_node.end_byte].decode(
+                "utf-8"
+            )
         else:
             symbol = f"anonymous_{chunk_type}"
 
