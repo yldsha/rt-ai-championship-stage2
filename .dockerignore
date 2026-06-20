@@ -1,0 +1,16 @@
+
+.git
+.gitignore
+.venv
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+.streamlit/secrets.toml
+*.md
+.env
+dataset/
+RAG/chroma_db/
+RAG/data/chunks.jsonl
+results.json
+*.db
