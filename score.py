@@ -1,7 +1,7 @@
 """
-CodeLens RAG — Precision@5 scorer.
+CodeLens RAG — Precision@5 & MRR scorer.
 
-Computes mean Precision@5 over a set of retrieval questions.
+Computes mean Precision@5 and Mean Reciprocal Rank (MRR) over a set of retrieval questions.
 Supports ±2-line tolerance when comparing chunk identifiers.
 Scores range from 0.0 to 1.0 per question.
 
@@ -109,6 +109,20 @@ def score_question(top5: list[str], correct: list[str]) -> float:
     return matched / min(5, len(correct))
 
 
+def calculate_mrr(top5: list[str], correct: list[str]) -> float:
+    """Compute Mean Reciprocal Rank for a single question.
+    
+    Formula: 1 / rank of the first relevant document.
+    If no relevant document is found in top-5, returns 0.0.
+    """
+    for i, pred in enumerate(top5):
+        for ref in correct:
+            if chunks_match(pred, ref):
+                # Rank is index + 1
+                return 1.0 / (i + 1)
+    return 0.0
+
+
 def load_json(path: Path, label: str) -> list | None:
     """Load and parse a JSON file; return None on error."""
     if not path.exists():
@@ -127,7 +141,7 @@ def load_json(path: Path, label: str) -> list | None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="CodeLens RAG — Precision@5 scorer"
+        description="CodeLens RAG — Precision@5 & MRR scorer"
     )
     parser.add_argument(
         "--predictions", required=True,
@@ -186,7 +200,17 @@ def main() -> int:
     # Score each question
     per_question: list[dict] = []
     missing_preds = []
-
+    if gt and pred_index:
+        first_qid = next(iter(gt))
+        print("--- DEBUG INFO ---")
+        print(f"Пример эталонного ID (из eval_questions): {gt[first_qid].get('correct_chunk_ids', [])[0]}")
+        
+        if first_qid in pred_index and pred_index[first_qid]:
+            print(f"Пример предсказанного ID (из results): {pred_index[first_qid][0]}")
+        else:
+            print("Для первого вопроса нет предсказаний.")
+        print("------------------")
+        
     for qid, q in gt.items():
         correct = q.get("correct_chunk_ids", [])
         difficulty = q.get("difficulty", "unknown")
@@ -198,8 +222,10 @@ def main() -> int:
             )
             missing_preds.append(qid)
             score = 0.0
+            mrr = 0.0
         else:
             score = score_question(pred_index[qid], correct)
+            mrr = calculate_mrr(pred_index[qid], correct)
 
         per_question.append({
             "question_id": qid,
@@ -207,6 +233,7 @@ def main() -> int:
             "language": language,
             "n_correct": len(correct),
             "score": score,
+            "mrr": mrr
         })
 
     if not per_question:
@@ -216,6 +243,7 @@ def main() -> int:
     # Aggregate
     total = len(per_question)
     mean_score = sum(r["score"] for r in per_question) / total
+    mean_mrr = sum(r["mrr"] for r in per_question) / total
 
     # By difficulty
     by_difficulty: dict[str, list[float]] = defaultdict(list)
@@ -232,6 +260,7 @@ def main() -> int:
     print()
     print(f"Questions evaluated: {total}")
     print(f"Mean Precision@5: {mean_score:.3f}")
+    print(f"Mean MRR:         {mean_mrr:.3f}")
     print()
     print("By difficulty:")
     for diff in ["easy", "medium", "hard"]:
@@ -251,13 +280,15 @@ def main() -> int:
     for r in sorted(per_question, key=lambda x: x["question_id"]):
         n = r["n_correct"]
         s = r["score"]
+        m = r["mrr"]
         matched_count = round(s * min(5, r["n_correct"]))
         print(
             f"  {r['question_id']} [{r['difficulty']}, {r['language']}]"
-            f" -- {matched_count}/{n} expected in top-5 -> {s:.2f}"
+            f" -- {matched_count}/{n} expected in top-5 -> P@5: {s:.2f}, MRR: {m:.2f}"
         )
     print()
-    print(f"Total score: {mean_score:.3f}")
+    print(f"Total score (P@5): {mean_score:.3f}")
+    print(f"Total score (MRR): {mean_mrr:.3f}")
 
     return 0
 
