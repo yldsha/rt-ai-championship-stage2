@@ -4,58 +4,57 @@ CodeLens RAG — Alpha Parameter Tuner.
 Runs evaluation across multiple alpha values and plots Precision@5 curve.
 """
 
+import time
 import json
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-# Импортируем компоненты твоей системы
 from RAG.searcher import HybridSearcher
 from accuracy_checking.score import score_question
 
 def main():
-    # 1. Настройка путей (используем те же дефолты, что и в твоих скриптах)
     questions_path = Path("accuracy_checking/eval_questions.json")
     
     if not questions_path.exists():
-        print(f"[-] Файл с вопросами не найден по пути: {questions_path}")
+        print(f"Eval questions file not found: {questions_path}")
         return
 
-    print("[+] Инициализация поискового движка HybridSearcher...")
+    print("Initializing HybridSearcher...")
     searcher = HybridSearcher()
     
-    # Загружаем валидационные вопросы
     with open(questions_path, "r", encoding="utf-8") as f:
         queries = json.load(f)
-    print(f"[+] Успешно загружено вопросов для теста: {len(queries)}")
+    print(f"Successfully loaded questions for testing: {len(queries)}")
 
-    # 2. Определяем сетку значений alpha (от 0.0 до 1.0 с шагом 0.1)
-    # Получим список: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     alpha_grid = np.linspace(0.0, 1.0, 21)
     mean_scores = []
 
-    print("\n=== Запуск процесса оптимизации ===")
+    print("\n=== Running optimization process ===")
+
+    searchtime = []
     
-    # Слой инференса и подсчета метрик в памяти
     for alpha in alpha_grid:
-        alpha = round(alpha, 2)  # Избавляемся от хвостов вещественных чисел плавающей точки
+        alpha = round(alpha, 2) 
         per_question_scores = []
         
         for q in queries:
             query_text = q["query"]
             correct_chunks = q.get("correct_chunk_ids", [])
+
+            start_time = time.time()
             
-            # Прогоняем поиск с текущим значением alpha
             results = searcher.search(query_text, alpha=alpha, top_k=5)
+
+            end_time = time.time()
             
-            # Вытаскиваем только ID предсказанных чанков
+            searchtime.append(end_time - start_time)
+
             predicted_chunks = [chunk["chunk_id"] for (_, chunk) in results]
             
-            # Считаем Precision@5 для конкретного вопроса по правилам из score.py
             score = score_question(predicted_chunks, correct_chunks)
             per_question_scores.append(score)
             
-        # Считаем среднее значение Precision@5 по всему датасету для текущей alpha
         mean_p5 = sum(per_question_scores) / len(per_question_scores)
         mean_scores.append(mean_p5)
         
@@ -65,19 +64,19 @@ def main():
     best_alpha = alpha_grid[best_idx]
     best_score = mean_scores[best_idx]
     
-    print("\n=== Результаты оптимизации ===")
-    print(f"🔥 Лучший коэффициент Alpha: {best_alpha:.2f}")
-    print(f"🎯 Максимальный Mean Precision@5: {best_score:.4f}")
+    print("\n=== Optimization Results ===")
+    print(f"Best Alpha coefficient: {best_alpha:.2f}")
+    print(f"Maximum Mean Precision@5: {best_score:.4f}")
 
-    print("\n[+] Генерация графика зависимости...")
+    print("\nGenerating dependency graph...")
     plt.figure(figsize=(10, 6))
     
     plt.plot(alpha_grid, mean_scores, marker='o', linestyle='-', color='#2ca02c', linewidth=2, label='Precision@5')
     
     plt.scatter(best_alpha, best_score, color='red', s=120, zorder=5, label=f'Best Alpha ({best_alpha:.1f})')
     
-    plt.title("Оптимизация гибридного поиска: Зависимость Precision@5 от Alpha", fontsize=14, pad=15)
-    plt.xlabel("Коэффициент Alpha (1.0 = Только Векторы, 0.0 = Только BM25)", fontsize=12)
+    plt.title("Optimization of Hybrid Search: Dependency of Precision@5 on Alpha", fontsize=14, pad=15)
+    plt.xlabel("Alpha Coefficient (1.0 = Only Vectors, 0.0 = Only BM25)", fontsize=12)
     plt.ylabel("Mean Precision@5", fontsize=12)
     plt.xticks(np.arange(0.0, 1.1, 0.1))
     plt.grid(True, linestyle='--', alpha=0.6)
@@ -91,11 +90,11 @@ def main():
                  weight="bold",
                  color="red")
 
-    # Сохраняем результат в файл на диск
     output_img = "accuracy_checking/alpha_optimization_curve.png"
     plt.savefig(output_img, dpi=300, bbox_inches='tight')
     plt.show()
-    print(f"[+] График успешно сохранен в: {output_img}")
+    print(f"Graph successfully saved to: {output_img}")
+    print(f"Time: {sum(searchtime) / len(searchtime)}")
 
 if __name__ == "__main__":
     main()

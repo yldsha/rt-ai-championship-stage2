@@ -14,9 +14,7 @@ class HybridSearcher:
         self.model = SentenceTransformer("BAAI/bge-m3")
         
         # 3 BM25 (по всему корпусу)
-        corpus = [chunk['code'] for chunk in self.data]
-        self.tokenized_corpus = [doc.split() for doc in corpus]
-        self.bm25 = BM25Okapi(self.tokenized_corpus)
+        self.bm25 = BM25Okapi([chunk["code"].split() for chunk in self.data])
         
         # 4 Инициализация ChromaDB
         self.client = chromadb.PersistentClient(path=db_path)
@@ -40,7 +38,7 @@ class HybridSearcher:
             include=['distances']
         )
         
-        # 2 BM25 для всего корпуса
+        # Полнотекстовый поиск
         bm25_scores = self.bm25.get_scores(query.split())
         
         # 3 Подготовка векторов (заполняем скорами по индексам)

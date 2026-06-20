@@ -14,7 +14,6 @@ from tqdm import tqdm
 import time
 
 import torch
-import json
 from sentence_transformers import SentenceTransformer
 import chromadb
 import dataclasses
