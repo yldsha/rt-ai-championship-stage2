@@ -4,14 +4,14 @@ CodeLens RAG — Alpha Parameter Tuner.
 Runs evaluation across multiple alpha values and plots Precision@5 curve.
 """
 
-import time
 import json
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from pathlib import Path
+import time
 
 from RAG.searcher import HybridSearcher
-from accuracy_checking.score import score_question
+from score import score_question
 
 def main():
     questions_path = Path("accuracy_checking/eval_questions.json")

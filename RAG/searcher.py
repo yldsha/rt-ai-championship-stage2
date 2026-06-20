@@ -12,7 +12,7 @@ class HybridSearcher:
         with open(chunks_file, "r", encoding="utf-8") as f:
             self.data = [json.loads(line) for line in f]
 
-        # 2
+        # 2 Инициализация модели
         self.model = SentenceTransformer("BAAI/bge-m3")
 
         # 3 BM25 (по всему корпусу)
