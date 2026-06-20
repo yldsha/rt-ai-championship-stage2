@@ -14,6 +14,7 @@ import ast
 
 from chunker.chunk import Chunk
 
+
 class ASTChunkCollector(ast.NodeVisitor):
     """Collect class/function/method chunks from a parsed module AST."""
 
@@ -24,7 +25,6 @@ class ASTChunkCollector(ast.NodeVisitor):
         self.chunks: list[Chunk] = []
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        
         self._append_chunk(node=node, symbol=node.name, chunk_type="class")
 
         self.class_stack.append(node.name)
@@ -62,7 +62,11 @@ class ASTChunkCollector(ast.NodeVisitor):
         start_line = int(getattr(node, "lineno", 1))
         end_line = int(getattr(node, "end_lineno", start_line))
         code = "".join(self.source_lines[start_line - 1 : end_line]).rstrip("\n")
-        docstring = ast.get_docstring(node) if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) else None
+        docstring = (
+            ast.get_docstring(node)
+            if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+            else None
+        )
 
         chunk_id = f"{self.module_path}:{symbol}:{start_line}"
         self.chunks.append(
@@ -78,6 +82,7 @@ class ASTChunkCollector(ast.NodeVisitor):
                 docstring=docstring,
             )
         )
+
 
 def parse_python(file_path, module_path, source_text) -> list[Chunk]:
     source_lines = source_text.splitlines(keepends=True)

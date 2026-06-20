@@ -1,12 +1,12 @@
 """Java code chunker based on Tree-sitter."""
 
 from __future__ import annotations
+
 from pathlib import Path
 
 from tree_sitter_languages import get_language, get_parser
 
 from chunker.chunk import Chunk
-
 
 JAVA_QUERY = """
 (class_declaration) @class
@@ -39,13 +39,18 @@ def parse_java(
 
         name_node = node.child_by_field_name("name")
         if name_node:
-            symbol = source_bytes[name_node.start_byte : name_node.end_byte].decode("utf-8")
+            symbol = source_bytes[name_node.start_byte : name_node.end_byte].decode(
+                "utf-8"
+            )
         else:
             symbol = f"anonymous_{chunk_type}"
 
         if chunk_type == "method":
             parent = node.parent
-            while parent and parent.type not in ("class_declaration", "interface_declaration"):
+            while parent and parent.type not in (
+                "class_declaration",
+                "interface_declaration",
+            ):
                 parent = parent.parent
             if parent:
                 parent_name_node = parent.child_by_field_name("name")
@@ -62,7 +67,9 @@ def parse_java(
         docstring = None
         prev_sibling = node.prev_sibling
         if prev_sibling and prev_sibling.type in ("comment", "block_comment"):
-            docstring = source_bytes[prev_sibling.start_byte : prev_sibling.end_byte].decode("utf-8")
+            docstring = source_bytes[
+                prev_sibling.start_byte : prev_sibling.end_byte
+            ].decode("utf-8")
 
         chunk_id = f"{module_path}:{symbol}:{start_line}"
         chunks.append(
