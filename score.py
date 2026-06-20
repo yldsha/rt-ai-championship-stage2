@@ -256,6 +256,11 @@ def main() -> int:
     for r in per_question:
         by_language[r["language"]].append(r["score"])
 
+    by_language_mrr: dict[str, list[float]] = defaultdict(list)
+    for r in per_question:
+        by_language_mrr[r["language"]].append(r["mrr"])
+
+
     # Output
     print("=== CodeLens RAG -- Scoring ===")
     print()
@@ -270,13 +275,19 @@ def main() -> int:
             avg = sum(scores) / len(scores)
             print(f"  {diff:<8} {avg:.3f} ({len(scores)} questions)")
     print()
-    print("By language:")
+    print("By language (Precision@5):")
     for lang in ["ru", "en"]:
         scores = by_language.get(lang, [])
         if scores:
             avg = sum(scores) / len(scores)
             print(f"  {lang}: {avg:.3f} ({len(scores)} questions)")
     print()
+    print("By language (MRR):")
+    for lang in ["ru", "en"]:
+        scores = by_language_mrr.get(lang, [])
+        if scores:
+            avg = sum(scores) / len(scores)
+            print(f"  {lang}: {avg:.3f} ({len(scores)} questions)")
     print("Per-question detail:")
     for r in sorted(per_question, key=lambda x: x["question_id"]):
         n = r["n_correct"]
