@@ -1,52 +1,42 @@
 import argparse
 import json
+import os
+import sys
 
-import chromadb
-import sentence_transformers
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from RAG.searcher import HybridSearcher
 
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate RAG")
-    parser.add_argument(
-        "--questions",
-        type=str,
-        default="accuracy_checking/eval_questions.json",
-        help="Path to evaluation questions file",
-    )
-    parser.add_argument(
-        "--output",
-        type=str,
-        default="accuracy_checking/results.json",
-        help="Path to output results file",
-    )
+    parser.add_argument("--questions", type=str, default="accuracy_checking/eval_questions.json")
+    parser.add_argument("--output", type=str, default="accuracy_checking/results.json")
+    parser.add_argument("--alpha", type=float, default=0.5)
     args = parser.parse_args()
 
-    model = sentence_transformers.SentenceTransformer("BAAI/bge-m3")
-
-    client = chromadb.PersistentClient(path="RAG/chroma_db")
-    collection = client.get_collection("gymhero_code")
+    searcher = HybridSearcher(
+        db_path="RAG/chroma_db",
+        chunks_file="RAG/data/chunks.jsonl"
+    )
 
     with open(args.questions, "r", encoding="utf-8") as f:
         queries = json.load(f)
 
     output_results = []
-
     for q in queries:
-        q_id = q["question_id"]
-        query_text = q["query"]
-
-        query_vector = model.encode(query_text).tolist()
-
-        db_results = collection.query(
-            query_embeddings=[query_vector],
-            n_results=5,
-        )
-
-        chunks = db_results["ids"][0]
-        output_results.append({"question_id": q_id, "top_5_chunks": chunks})
+        results = searcher.search(q["query"], alpha=args.alpha, top_k=5)
+        # results — список (score, chunk_dict)
+        top5 = [chunk["chunk_id"] for score, chunk in results]
+        output_results.append({
+            "question_id": q["question_id"],
+            "top_5_chunks": top5
+        })
 
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(output_results, f, ensure_ascii=False, indent=4)
+
+    print(f"Saved {len(output_results)} results to {args.output}")
 
 
 if __name__ == "__main__":
