@@ -1,11 +1,10 @@
-import json
 import argparse
-import sys
-import os
+import json
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "RAG")))
+import chromadb
+import sentence_transformers
+
 from RAG.searcher import HybridSearcher
-
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate RAG")
