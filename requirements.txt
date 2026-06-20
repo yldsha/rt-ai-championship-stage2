@@ -51,6 +51,7 @@ opentelemetry-semantic-conventions==0.63b1
 orjson==3.11.9
 overrides==7.7.0
 packaging==26.2
+plotly==6.8.0
 propcache==0.5.2
 protobuf==6.33.6
 pybase64==1.4.3
@@ -77,11 +78,13 @@ sentence-transformers==5.6.0
 setuptools==81.0.0
 shellingham==1.5.4
 six==1.17.0
+streamlit==1.58.0
 sympy==1.14.0
 tenacity==9.1.4
 threadpoolctl==3.6.0
 tokenizers==0.22.2
-torch==2.12.0
+torch==2.12.1
+torchvision==0.27.1
 tqdm==4.68.2
 transformers==5.12.1
 typer==0.25.1
