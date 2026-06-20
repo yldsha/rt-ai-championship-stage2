@@ -3,10 +3,9 @@
 Использует generate_results.py и score.py для расчета Precision@5
 """
 
-import json
+import os
 import subprocess
 import sys
-import os
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 

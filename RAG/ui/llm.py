@@ -15,8 +15,8 @@ Groq даёт бесплатный доступ с высокими лимита
 """
 
 import os
-import requests
 
+import requests
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 

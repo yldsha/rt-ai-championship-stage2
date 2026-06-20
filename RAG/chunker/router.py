@@ -2,11 +2,10 @@
 Router for mapping file extensions to their corresponding syntax parsers.
 """
 
-from chunk import Chunk
 from pathlib import Path
 
-from chunker.chunk import Chunk
 import chunker.utils
+from chunker.chunk import Chunk
 from chunker.parsers.cpp_parser import parse_cpp
 from chunker.parsers.go_parser import parse_go
 from chunker.parsers.java_parser import parse_java

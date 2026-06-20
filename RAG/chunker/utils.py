@@ -3,7 +3,6 @@ from chunk import Chunk
 from pathlib import Path
 from typing import Iterable
 
-from chunker.chunk import Chunk
 
 def normalize_module_path(
     file_path: Path, source_root: Path, project_prefix: str
