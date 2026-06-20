@@ -1,0 +1,18 @@
+services:
+  codelens:
+    build: .
+    container_name: codelens-rag
+    ports:
+      - "8501:8501"
+    environment:
+      # Ключ для LLM-чата (Groq). Можно либо экспортировать
+      # GROQ_API_KEY в своём терминале перед запуском docker compose up,
+      # либо вписать значение прямо в файл .env (см. .env.example)
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+    volumes:
+      # Базу данных ChromaDB и бэкап чанков монтируем как volume,
+      # чтобы при пересборке образа не терять проиндексированные данные
+      # и чтобы можно было переиндексировать без пересборки контейнера.
+      - ./RAG/chroma_db:/app/RAG/chroma_db
+      - ./RAG/data:/app/RAG/data
+    restart: unless-stopped

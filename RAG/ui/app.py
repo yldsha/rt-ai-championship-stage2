@@ -16,6 +16,7 @@ import streamlit as st
 
 st.set_page_config(page_title="CodeLens RAG", page_icon="🟢", layout="wide")
 
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from llm import ask_llm  # noqa: E402
@@ -36,11 +37,23 @@ def get_searcher():
 searcher = get_searcher()
 
 
+# ======================================================================
 #  ОФОРМЛЕНИЕ
+# ======================================================================
 
 CSS = """
 <style>
-/* ---- скрываем стандартный хедер Streamlit (Deploy / меню) ---- */
+
+:root, .stApp {
+    color-scheme: light !important;
+    --background-color: #EAF6F4 !important;
+    --secondary-background-color: #FFFFFF !important;
+    --text-color: #1a1a1a !important;
+    --primary-color: #1B4D3E !important;
+}
+* { color-scheme: light !important; }
+
+
 [data-testid="stHeader"] { display: none !important; background: transparent !important; }
 [data-testid="stToolbar"] { display: none !important; }
 #MainMenu { visibility: hidden !important; }
@@ -48,8 +61,16 @@ footer { visibility: hidden !important; }
 .stApp > header { display: none !important; }
 
 /* ---- общий фон и шрифт ---- */
-.stApp { background: #eef5ec; }
+.stApp { background: #eef5ec !important; }
 html, body, [class*="css"] { font-family: 'Geist', system-ui, -apple-system, sans-serif; }
+
+p, span, div, label, h1, h2, h3, h4, h5, h6, li {
+    color: #1a1a1a;
+}
+input, textarea {
+    background-color: #ffffff !important;
+    color: #1a1a1a !important;
+}
 
 /* ---- сайдбар ---- */
 section[data-testid="stSidebar"] { background: #e6f0e4; border-right: 1px solid #d4e3d2; }
@@ -197,7 +218,9 @@ def fmt_pct(score: float) -> int:
     return int(round(score * 100))
 
 
+# ======================================================================
 #  СОСТОЯНИЕ
+# ======================================================================
 ss = st.session_state
 ss.setdefault("messages", [
     {"role": "assistant",
@@ -210,8 +233,8 @@ ss.setdefault("top_k", 5)
 ss.setdefault("alpha", 0.8)
 ss.setdefault("model", DEFAULT_MODEL)
 ss.setdefault("metric_type", "Precision@5")
-if not isinstance(ss.get("metrics_result"), dict):
-    ss.metrics_result = {"overall": 0.0, "ru": None, "en": None}
+if not isinstance(ss.get("metrics_result"), dict) or "mrr" not in ss.get("metrics_result", {}):
+    ss.metrics_result = {"overall": 0.0, "mrr": 0.0, "ru": None, "en": None, "mrr_ru": None, "mrr_en": None}
 ss.setdefault("metrics_debug", "")
 ss.setdefault("last_results", [])
 ss.setdefault("last_query", "")
@@ -240,7 +263,9 @@ def total_chunks() -> int:
     return len(searcher.data) if hasattr(searcher, "data") else 0
 
 
+# ======================================================================
 #  САЙДБАР
+# ======================================================================
 with st.sidebar:
     st.markdown(
         '<div class="cl-logo"><div class="mark">&lt;/&gt;</div>'
@@ -267,7 +292,9 @@ with st.sidebar:
     )
 
 
+# ======================================================================
 #  СТРАНИЦА: ПОИСК
+# ======================================================================
 if page.endswith("Поиск кода"):
     st.markdown('<p class="cl-h1">Поиск фрагментов кода</p>'
                 '<p class="cl-sub">Опишите словами, что ищете — найдём похожие фрагменты в базе.</p>',
@@ -322,7 +349,9 @@ if page.endswith("Поиск кода"):
         st.info("Введите запрос, чтобы начать поиск.")
 
 
+# ======================================================================
 #  СТРАНИЦА: ЧАТ С LLM
+# ======================================================================
 elif page.endswith("Чат с LLM"):
     st.markdown('<p class="cl-h1">Чат с LLM</p>'
                 '<p class="cl-sub">Задавайте вопросы о коде — система ищет по базе и отвечает.</p>',
@@ -367,8 +396,6 @@ elif page.endswith("Чат с LLM"):
         results = run_search(prompt, top_k=ss.top_k, alpha=ss.alpha)
 
         if results:
-            # Берём топ-3 фрагмента — этого достаточно контекста для LLM
-            # и не перегружает промпт лишним кодом
             top_chunks = [
                 {"chunk_id": r["chunk_id"], "code": r["code"]}
                 for r in results[:3]
@@ -397,7 +424,9 @@ elif page.endswith("Чат с LLM"):
         st.rerun()
 
 
+# ======================================================================
 #  СТРАНИЦА: ИСТОРИЯ
+# ======================================================================
 elif page.endswith("История"):
     st.markdown('<p class="cl-h1">История запросов</p>'
                 '<p class="cl-sub">Недавние поиски в этой сессии.</p>',
@@ -418,7 +447,9 @@ elif page.endswith("История"):
                             unsafe_allow_html=True)
 
 
+# ======================================================================
 #  СТРАНИЦА: РАСШИРЕННЫЕ НАСТРОЙКИ
+# ======================================================================
 elif page.endswith("Расширенные настройки"):
     st.markdown('<p class="cl-h1">Расширенные настройки</p>'
                 '<p class="cl-sub">Параметры поиска, модель и качество системы.</p>',
@@ -436,9 +467,14 @@ elif page.endswith("Расширенные настройки"):
         )
 
         m = ss.metrics_result
-        overall = m["overall"]
-        ru_val = m["ru"]
-        en_val = m["en"]
+        if ss.metric_type == "MRR":
+            overall = m["mrr"]
+            ru_val = m.get("mrr_ru")
+            en_val = m.get("mrr_en")
+        else:
+            overall = m["overall"]
+            ru_val = m["ru"]
+            en_val = m["en"]
 
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -453,14 +489,14 @@ elif page.endswith("Расширенные настройки"):
             st.markdown(f"""<div class="cl-metric">
                 <div class="lbl">Русский язык</div>
                 <div class="val">{ru_display}</div>
-                <div class="sub">8 вопросов</div>
+                <div class="sub">8 вопросов{" (только для P@5)" if ss.metric_type == "MRR" else ""}</div>
             </div>""", unsafe_allow_html=True)
         with c3:
             en_display = f"{en_val:.3f}" if en_val is not None else "—"
             st.markdown(f"""<div class="cl-metric">
                 <div class="lbl">Английский язык</div>
                 <div class="val">{en_display}</div>
-                <div class="sub">7 вопросов</div>
+                <div class="sub">7 вопросов{" (только для P@5)" if ss.metric_type == "MRR" else ""}</div>
             </div>""", unsafe_allow_html=True)
 
         st.write("")
@@ -499,4 +535,4 @@ elif page.endswith("Расширенные настройки"):
 
     st.write("")
 
-    
+ 

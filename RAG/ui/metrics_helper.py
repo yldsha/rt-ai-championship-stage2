@@ -7,12 +7,18 @@ import os
 import subprocess
 import sys
 
+# Корень проекта — metrics_helper.py лежит в RAG/ui/,
+# поэтому поднимаемся на два уровня вверх до настоящего корня репозитория
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 def get_precision(searcher=None, alpha: float = 0.5):
+    """
+    Генерирует results.json через generate_results.py и запускает score.py.
+
+    """
     debug_lines = []
-    metrics = {"overall": 0.0, "ru": None, "en": None}
+    metrics = {"overall": 0.0, "mrr": 0.0, "ru": None, "en": None, "mrr_ru": None, "mrr_en": None}
 
     try:
         gen_script = os.path.join(PROJECT_ROOT, "accuracy_checking", "generate_results.py")
@@ -59,6 +65,7 @@ def get_precision(searcher=None, alpha: float = 0.5):
             debug_lines.append(f"ОШИБКА: results.json не был создан по пути {results_file}")
             return metrics, "\n".join(debug_lines)
 
+    
         result_score = subprocess.run(
             [
                 sys.executable,
@@ -80,26 +87,43 @@ def get_precision(searcher=None, alpha: float = 0.5):
             debug_lines.append(f"score.py завершился с кодом {result_score.returncode}")
             return metrics, "\n".join(debug_lines)
 
-        in_language_block = False
+   
+        block = None  # None | "p5" | "mrr"
 
         for raw_line in result_score.stdout.split("\n"):
             line = raw_line.strip()
 
-            if "Mean Precision@5:" in line or "Total score:" in line:
+            if line.startswith("Mean Precision@5:") or line.startswith("Total score (P@5):"):
                 metrics["overall"] = float(line.split(":")[-1].strip())
                 continue
 
-            if line.startswith("By language"):
-                in_language_block = True
+            if line.startswith("Mean MRR:") or line.startswith("Total score (MRR):"):
+                metrics["mrr"] = float(line.split(":")[-1].strip())
                 continue
 
-            if in_language_block:
+            if line.startswith("By language (MRR)"):
+                block = "mrr"
+                continue
+
+            if line.startswith("By language"):
+                block = "p5"
+                continue
+
+            if block == "p5":
                 if line.startswith("ru:"):
                     metrics["ru"] = float(line.split(":")[1].strip().split(" ")[0])
                 elif line.startswith("en:"):
                     metrics["en"] = float(line.split(":")[1].strip().split(" ")[0])
                 elif line == "" or line.startswith("Per-question") or line.startswith("By "):
-                    in_language_block = False
+                    block = None
+
+            elif block == "mrr":
+                if line.startswith("ru:"):
+                    metrics["mrr_ru"] = float(line.split(":")[1].strip().split(" ")[0])
+                elif line.startswith("en:"):
+                    metrics["mrr_en"] = float(line.split(":")[1].strip().split(" ")[0])
+                elif line == "" or line.startswith("Per-question") or line.startswith("By "):
+                    block = None
 
         debug_lines.append(f"Итоговые метрики: {metrics}")
 
