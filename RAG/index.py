@@ -10,8 +10,8 @@ Usage:
 
 import argparse
 import dataclasses
-import time
 import logging
+import time
 from pathlib import Path
 
 import chromadb
@@ -133,8 +133,16 @@ def main() -> int:
     chunker.utils.write_jsonl(all_chunks, args.output_backup)
     logger.info(f"Backup saved to {args.output_backup}")
 
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
+
+    logger.info(f"Using device: {device}")
     logger.info(f"\nLoading model {args.model_name}...")
-    model = SentenceTransformer(args.model_name)
+    model = SentenceTransformer(args.model_name, device=device)
 
     logger.info(f"Connecting to ChromaDB (folder {args.db_path})...")
     chroma_client = chromadb.PersistentClient(path=args.db_path)
@@ -189,6 +197,8 @@ def main() -> int:
             
         if torch.backends.mps.is_available():
             torch.mps.empty_cache()
+        elif torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     end_time = time.time()
 
