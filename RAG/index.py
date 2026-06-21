@@ -9,19 +9,17 @@ Usage:
 """
 
 import argparse
-from pathlib import Path
-from tqdm import tqdm
-import time
-
-import torch
-from sentence_transformers import SentenceTransformer
-import chromadb
 import dataclasses
+import time
+from pathlib import Path
 
+import chromadb
 import chunker.utils
 import torch
 from chunker.chunk import Chunk
 from chunker.router import collect_chunks_for_file, get_supported_extensions
+from sentence_transformers import SentenceTransformer
+from tqdm import tqdm
 
 # configurations
 MODEL_NAME = "BAAI/bge-m3"

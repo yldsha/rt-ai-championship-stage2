@@ -5,13 +5,15 @@ Runs evaluation across multiple alpha values and plots Precision@5 curve.
 """
 
 import json
+import time
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
-from pathlib import Path
-import time
 
 from RAG.searcher import HybridSearcher
 from score import score_question
+
 
 def main():
     questions_path = Path("accuracy_checking/eval_questions.json")

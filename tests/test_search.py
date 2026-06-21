@@ -1,4 +1,4 @@
-from ..RAG.searcher import HybridSearcher
+from RAG.searcher import HybridSearcher
 
 
 def run_test():
@@ -12,11 +12,6 @@ def run_test():
     print(f"--- Тестируем запрос: '{query}' ---")
     results = searcher.search(query, alpha=0.5, top_k=3)
 
-<<<<<<< HEAD:tests/test_search.py
-    print(results)
-    
-=======
->>>>>>> main:test_search.py
     for i, (score, chunk) in enumerate(results):
         print(f"\nРезультат #{i+1} (Score: {score:.4f})")
         print(f"Файл: {chunk.get('path', 'unknown')}")
