@@ -10,6 +10,7 @@ Usage:
 
 import argparse
 import dataclasses
+import logging
 import time
 from pathlib import Path
 
@@ -21,49 +22,38 @@ from chunker.router import collect_chunks_for_file, get_supported_extensions
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
-# configurations
-MODEL_NAME = "BAAI/bge-m3"
-CHROMA_DB_DIR = "RAG/chroma_db"
-COLLECTION_NAME = "gymhero_code"
+# настройка логирования
+logging.basicConfig(
+    level=logging.WARNING, 
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S"
+)
+
+logger = logging.getLogger(__name__)
+
+logger.setLevel(logging.INFO)
 
 
-def get_embedding(text: str, model: SentenceTransformer) -> list:
-    """Generates a normalized embedding vector for a single text string."""
-    embedding = model.encode(text, normalize_embeddings=True)
-    return embedding.tolist()
+def parse_args() -> argparse.Namespace:
+    """Parses command line arguments."""
+    parser = argparse.ArgumentParser(description="Multi-language code chunker and indexer for RAG")
+    parser.add_argument("source_root", type=Path, help="Directory with source files to chunk and index")
+    parser.add_argument("--output-backup", type=Path, default=Path("RAG/data/chunks.jsonl"))
+    parser.add_argument("--force", action="store_true", help="Force re-indexing: purge existing collection")
+    
+    # конфигурация в аргументах
+    parser.add_argument("--model-name", type=str, default="BAAI/bge-m3")
+    parser.add_argument("--db-path", type=Path, default=Path("RAG/chroma_db"))
+    parser.add_argument("--collection", type=str, default="gymhero_code")
+    parser.add_argument("--batch-size", type=int, default=16)
+    
+    return parser.parse_args()
 
 
 def get_embeddings(texts: list[str], model: SentenceTransformer) -> list[list[float]]:
     """Generates embedding vectors for a list of text strings (batch processing)."""
     embeddings = model.encode(texts, normalize_embeddings=True)
     return embeddings.tolist()
-
-
-def parse_args() -> argparse.Namespace:
-    """Parses command line arguments."""
-
-    parser = argparse.ArgumentParser(
-        description="Multi-language code chunker and indexer for RAG"
-    )
-    # Делаем папку позиционным обязательным аргументом
-    parser.add_argument(
-        "source_root",
-        type=Path,
-        help="Directory with source files to chunk and index",
-    )
-    parser.add_argument(
-        "--project-prefix",
-        type=str,
-        default=None,
-        help="Path prefix used in chunk_id (по умолчанию берется имя папки)",
-    )
-    parser.add_argument(
-        "--output-backup",
-        type=Path,
-        default=Path("RAG/data/chunks.jsonl"),
-        help="Output JSONL file path for backup",
-    )
-    return parser.parse_args()
 
 
 def chunk_to_dict(chunk: Chunk) -> dict:
@@ -73,6 +63,33 @@ def chunk_to_dict(chunk: Chunk) -> dict:
     elif hasattr(chunk, "to_dict"):
         return chunk.to_dict()
     return vars(chunk)
+
+
+def build_enriched_text(chunk: dict) -> str:
+    """Context Injection"""
+    text_parts = []
+    if chunk.get("path"):
+        text_parts.append(f"File: {chunk['path']}")
+    if chunk.get("language"):
+        text_parts.append(f"Language: {chunk['language']}")
+    if chunk.get("symbol"):
+        chunk_type = chunk.get('chunk_type', 'symbol')
+        text_parts.append(f"{chunk_type.capitalize()}: {chunk['symbol']}")
+
+    docstring = f"\nDescription: {chunk['docstring']}" if chunk.get("docstring") else ""
+    code_body = f"\nCode:\n{chunk.get('code', '')}"
+
+    enriched_text = f"{', '.join(text_parts)}{docstring}{code_body}".strip()
+    
+    return enriched_text if enriched_text else chunk.get("code", "empty chunk")
+
+
+def extract_metadata(chunk: dict) -> dict:
+    """Extracts clean metadata, filtering out heavy text fields and unsupported types."""
+    return {
+        k: v for k, v in chunk.items()
+        if k not in ["code", "docstring"] and isinstance(v, (str, int, float, bool))
+    }
 
 
 def main() -> int:
@@ -86,10 +103,10 @@ def main() -> int:
             f"Source root does not exist or is not a directory: {source_root}"
         )
 
-    project_prefix = args.project_prefix or source_root.name
+    project_prefix = args.source_root.name
 
     # cбор чанков
-    print(f"Extracting semantic chunks from repository {source_root}...")
+    logger.info(f"Extracting semantic chunks from repository {source_root}...")
     all_chunks: list[Chunk] = []
 
     supported_exts = get_supported_extensions()
@@ -103,41 +120,51 @@ def main() -> int:
             )
             all_chunks.extend(file_chunks)
         except Exception as exc:
-            print(f"[WARN] Skipping {file_path} due to error: {exc}")
+            logger.warning(f"Skipping {file_path} due to error: {exc}")
             continue
 
-    print(f"Successfully extracted {len(all_chunks)} semantic chunks")
+    logger.info(f"Successfully extracted {len(all_chunks)} semantic chunks")
 
     if not all_chunks:
-        print("Chunks not found. Indexing cancelled.")
+        logger.error("Chunks not found. Indexing cancelled.")
         return 0
 
     # сохраняем бэкап
     chunker.utils.write_jsonl(all_chunks, args.output_backup)
-    print(f"Backup saved to {args.output_backup}")
+    logger.info(f"Backup saved to {args.output_backup}")
 
-    print(f"\nLoading model {MODEL_NAME}...")
-    model = SentenceTransformer(MODEL_NAME)
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
 
-    print(f"Connecting to ChromaDB (folder {CHROMA_DB_DIR})...")
-    chroma_client = chromadb.PersistentClient(path=CHROMA_DB_DIR)
+    logger.info(f"Using device: {device}")
+    logger.info(f"\nLoading model {args.model_name}...")
+    model = SentenceTransformer(args.model_name, device=device)
 
-    print(f"Purging existing collection '{COLLECTION_NAME}' for a clean re-indexing...")
-    try:
-        chroma_client.delete_collection(name=COLLECTION_NAME)
-    except Exception:
-        pass
+    logger.info(f"Connecting to ChromaDB (folder {args.db_path})...")
+    chroma_client = chromadb.PersistentClient(path=args.db_path)
+
+    if getattr(args, "force", False):
+        logger.info(f"FORCE MODE: Purging existing collection '{args.collection}' for a clean re-indexing...")
+        try:
+            chroma_client.delete_collection(name=args.collection)
+        except Exception:
+            pass
 
     collection = chroma_client.get_or_create_collection(
-        name=COLLECTION_NAME, metadata={"hnsw:space": "cosine"}
+        name=args.collection, metadata={"hnsw:space": "cosine"}
     )
 
-    print("\nGenerating embeddings and saving to ChromaDB in batches...")
+    existing_ids = set(collection.get()["ids"])
+    logger.info(f"Found {len(existing_ids)} chunks already in the database.")
 
-    batch_size = 8
+    logger.info("\nGenerating embeddings and saving to ChromaDB in batches...")
 
-    for i in tqdm(range(0, len(all_chunks), batch_size)):
-        batch_chunks = all_chunks[i : i + batch_size]
+    for i in tqdm(range(0, len(all_chunks), args.batch_size)):
+        batch_chunks = all_chunks[i : i + args.batch_size]
 
         batch_ids = []
         batch_texts = []
@@ -145,62 +172,38 @@ def main() -> int:
 
         for j, chunk_obj in enumerate(batch_chunks):
             chunk = chunk_to_dict(chunk_obj)
+            
+            chunk_id = chunk["chunk_id"]
 
-            # Context Injection
-            text_parts = []
-            if chunk.get("path"):
-                text_parts.append(f"File: {chunk['path']}")
-            if chunk.get("language"):
-                text_parts.append(f"Language: {chunk['language']}")
-            if chunk.get("symbol"):
-                text_parts.append(
-                    f"{chunk['chunk_type'].capitalize()}: {chunk['symbol']}"
-                )
+            if chunk_id in existing_ids:
+                continue
 
-            docstring = (
-                f"\nDescription: {chunk['docstring']}" if chunk.get("docstring") else ""
-            )
-            code_body = f"\nCode:\n{chunk.get('code', '')}"
-
-            enriched_text = f"{", ".join(text_parts)}{docstring}{code_body}".strip()
-
-            # если код пустой (бывает при сбоях парсера), делаем фоллбэк
-            if not enriched_text:
-                enriched_text = chunk.get("code", "empty chunk")
-
-            # собираем чистую метадату
-            meta = {}
-            for k, v in chunk.items():
-                if k not in ["code", "docstring"] and isinstance(
-                    v, (str, int, float, bool)
-                ):
-                    meta[k] = v
-
-            # уникальный ID чанка
-            global_idx = i + j
-            chunk_id = chunk.get("chunk_id", str(global_idx))
+            enriched_text = build_enriched_text(chunk)
+            meta = extract_metadata(chunk)
 
             batch_ids.append(chunk_id)
             batch_texts.append(enriched_text)
             batch_metadatas.append(meta)
 
-        batch_embeddings = get_embeddings(batch_texts, model)
+        if batch_texts:
+            batch_embeddings = get_embeddings(batch_texts, model)
 
-        collection.add(
-            ids=batch_ids,
-            documents=batch_texts,
-            embeddings=batch_embeddings,
-            metadatas=batch_metadatas,
-        )
-
+            collection.upsert(
+                ids=batch_ids,
+                documents=batch_texts,
+                embeddings=batch_embeddings,
+                metadatas=batch_metadatas,
+            )
+            
         if torch.backends.mps.is_available():
             torch.mps.empty_cache()
+        elif torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     end_time = time.time()
 
-    
-    print(f"\nDone! Successfully processed and saved {len(all_chunks)} chunks.")
-    print(f"Time: {end_time - start_time}")
+    logger.info(f"\nDone! Successfully processed and saved {len(all_chunks)} chunks.")
+    logger.info(f"Time: {end_time - start_time:.3f} seconds")
 
     return 0
 
