@@ -11,6 +11,7 @@ Usage:
 import argparse
 import dataclasses
 import time
+import logging
 from pathlib import Path
 
 import chromadb
@@ -20,6 +21,17 @@ from chunker.chunk import Chunk
 from chunker.router import collect_chunks_for_file, get_supported_extensions
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
+
+# настройка логирования
+logging.basicConfig(
+    level=logging.WARNING, 
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S"
+)
+
+logger = logging.getLogger(__name__)
+
+logger.setLevel(logging.INFO)
 
 
 def parse_args() -> argparse.Namespace:
@@ -94,7 +106,7 @@ def main() -> int:
     project_prefix = args.source_root.name
 
     # cбор чанков
-    print(f"Extracting semantic chunks from repository {source_root}...")
+    logger.info(f"Extracting semantic chunks from repository {source_root}...")
     all_chunks: list[Chunk] = []
 
     supported_exts = get_supported_extensions()
@@ -108,27 +120,27 @@ def main() -> int:
             )
             all_chunks.extend(file_chunks)
         except Exception as exc:
-            print(f"[WARN] Skipping {file_path} due to error: {exc}")
+            logger.warning(f"Skipping {file_path} due to error: {exc}")
             continue
 
-    print(f"Successfully extracted {len(all_chunks)} semantic chunks")
+    logger.info(f"Successfully extracted {len(all_chunks)} semantic chunks")
 
     if not all_chunks:
-        print("Chunks not found. Indexing cancelled.")
+        logger.error("Chunks not found. Indexing cancelled.")
         return 0
 
     # сохраняем бэкап
     chunker.utils.write_jsonl(all_chunks, args.output_backup)
-    print(f"Backup saved to {args.output_backup}")
+    logger.info(f"Backup saved to {args.output_backup}")
 
-    print(f"\nLoading model {args.model_name}...")
+    logger.info(f"\nLoading model {args.model_name}...")
     model = SentenceTransformer(args.model_name)
 
-    print(f"Connecting to ChromaDB (folder {args.db_path})...")
+    logger.info(f"Connecting to ChromaDB (folder {args.db_path})...")
     chroma_client = chromadb.PersistentClient(path=args.db_path)
 
     if getattr(args, "force", False):
-        print(f"FORCE MODE: Purging existing collection '{args.collection}' for a clean re-indexing...")
+        logger.info(f"FORCE MODE: Purging existing collection '{args.collection}' for a clean re-indexing...")
         try:
             chroma_client.delete_collection(name=args.collection)
         except Exception:
@@ -139,9 +151,9 @@ def main() -> int:
     )
 
     existing_ids = set(collection.get()["ids"])
-    print(f"Found {len(existing_ids)} chunks already in the database.")
+    logger.info(f"Found {len(existing_ids)} chunks already in the database.")
 
-    print("\nGenerating embeddings and saving to ChromaDB in batches...")
+    logger.info("\nGenerating embeddings and saving to ChromaDB in batches...")
 
     for i in tqdm(range(0, len(all_chunks), args.batch_size)):
         batch_chunks = all_chunks[i : i + args.batch_size]
@@ -180,9 +192,8 @@ def main() -> int:
 
     end_time = time.time()
 
-    
-    print(f"\nDone! Successfully processed and saved {len(all_chunks)} chunks.")
-    print(f"Time: {end_time - start_time:.3f} seconds")
+    logger.info(f"\nDone! Successfully processed and saved {len(all_chunks)} chunks.")
+    logger.info(f"Time: {end_time - start_time:.3f} seconds")
 
     return 0
 
