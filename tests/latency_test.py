@@ -2,13 +2,14 @@ import time
 
 from RAG.searcher import HybridSearcher
 
+
 def test_latency(queries: list[str]) -> float:
     searcher = HybridSearcher()
 
     latencies = []
     for query in queries:
         start_time = time.time()
-        results = searcher.search(query["query"], alpha=0.5, top_k=5)
+        searcher.search(query["query"], alpha=0.5, top_k=5)
         end_time = time.time()
         latency = end_time - start_time
         latencies.append(latency)
