@@ -28,9 +28,10 @@ DEFAULT_MODEL = "bge-m3"
 
 @st.cache_resource
 def get_searcher():
+    base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     return HybridSearcher(
-        db_path="RAG/chroma_db",
-        chunks_file="RAG/data/chunks.jsonl"
+        db_path=os.path.join(base, "data", "chroma_db"),
+        chunks_file=os.path.join(base, "data", "chunks.jsonl")
     )
 
 

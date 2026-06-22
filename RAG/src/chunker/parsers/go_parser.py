@@ -6,7 +6,7 @@ from pathlib import Path
 
 from tree_sitter_languages import get_language, get_parser
 
-from chunker.chunk import Chunk
+from RAG.src.chunker.chunk import Chunk
 
 GO_QUERY = """
 (type_declaration (type_spec type: (struct_type))) @class
@@ -48,17 +48,12 @@ def parse_go(
             if type_spec:
                 name_node = type_spec.child_by_field_name("name")
                 if name_node:
-                    symbol = source_bytes[
-                        name_node.start_byte : name_node.end_byte
-                    ].decode("utf-8")
+                    symbol = source_bytes[name_node.start_byte : name_node.end_byte].decode("utf-8")
         else:
             name_node = node.child_by_field_name("name")
             if name_node:
-                symbol = source_bytes[name_node.start_byte : name_node.end_byte].decode(
-                    "utf-8"
-                )
+                symbol = source_bytes[name_node.start_byte : name_node.end_byte].decode("utf-8")
 
-        # Если это метод Go, вытаскиваем тип ресивера (получателя) из параметров: func (r *MyStruct) Method()
         if chunk_type == "method":
             receiver_node = node.child_by_field_name("receiver")
             if receiver_node:
@@ -83,9 +78,7 @@ def parse_go(
         docstring = None
         prev_sibling = node.prev_sibling
         if prev_sibling and prev_sibling.type in ("comment", "line_comment"):
-            docstring = source_bytes[
-                prev_sibling.start_byte : prev_sibling.end_byte
-            ].decode("utf-8")
+            docstring = source_bytes[prev_sibling.start_byte : prev_sibling.end_byte].decode("utf-8")
 
         chunk_id = f"{module_path}:{symbol}:{start_line}"
         chunks.append(

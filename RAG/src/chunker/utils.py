@@ -1,7 +1,8 @@
 import json
-from chunk import Chunk
 from pathlib import Path
 from typing import Iterable
+
+from RAG.src.chunker.chunk import Chunk
 
 
 def normalize_module_path(

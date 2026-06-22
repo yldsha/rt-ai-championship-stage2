@@ -4,8 +4,7 @@ End-to-end indexing pipeline for RAG.
 Extracts semantic chunks from source code, generates embeddings, and saves them to ChromaDB.
 
 Usage:
-    python index.py <path_to_directory>
-    Example: python index.py data/gymhero/gymhero
+    python -m RAG.src.index dataset/gymhero/gymhero
 """
 
 import argparse
@@ -14,16 +13,17 @@ import time
 from pathlib import Path
 
 import chromadb
-import chunker.utils
 import torch
-from chunker.chunk import Chunk
-from chunker.router import collect_chunks_for_file, get_supported_extensions
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
+from RAG.src.chunker import utils as chunker_utils
+from RAG.src.chunker.chunk import Chunk
+from RAG.src.chunker.router import collect_chunks_for_file, get_supported_extensions
+
 # configurations
 MODEL_NAME = "BAAI/bge-m3"
-CHROMA_DB_DIR = "RAG/chroma_db"
+CHROMA_DB_DIR = "RAG/data/chroma_db"
 COLLECTION_NAME = "gymhero_code"
 
 
@@ -41,11 +41,9 @@ def get_embeddings(texts: list[str], model: SentenceTransformer) -> list[list[fl
 
 def parse_args() -> argparse.Namespace:
     """Parses command line arguments."""
-
     parser = argparse.ArgumentParser(
         description="Multi-language code chunker and indexer for RAG"
     )
-    # Делаем папку позиционным обязательным аргументом
     parser.add_argument(
         "source_root",
         type=Path,
@@ -88,13 +86,13 @@ def main() -> int:
 
     project_prefix = args.project_prefix or source_root.name
 
-    # cбор чанков
+    # сбор чанков
     print(f"Extracting semantic chunks from repository {source_root}...")
     all_chunks: list[Chunk] = []
 
     supported_exts = get_supported_extensions()
 
-    for file_path in sorted(chunker.utils.iter_files(source_root, supported_exts)):
+    for file_path in sorted(chunker_utils.iter_files(source_root, supported_exts)):
         try:
             file_chunks = collect_chunks_for_file(
                 file_path=file_path,
@@ -113,7 +111,7 @@ def main() -> int:
         return 0
 
     # сохраняем бэкап
-    chunker.utils.write_jsonl(all_chunks, args.output_backup)
+    chunker_utils.write_jsonl(all_chunks, args.output_backup)
     print(f"Backup saved to {args.output_backup}")
 
     print(f"\nLoading model {MODEL_NAME}...")
@@ -162,13 +160,11 @@ def main() -> int:
             )
             code_body = f"\nCode:\n{chunk.get('code', '')}"
 
-            enriched_text = f"{", ".join(text_parts)}{docstring}{code_body}".strip()
+            enriched_text = f"{', '.join(text_parts)}{docstring}{code_body}".strip()
 
-            # если код пустой (бывает при сбоях парсера), делаем фоллбэк
             if not enriched_text:
                 enriched_text = chunk.get("code", "empty chunk")
 
-            # собираем чистую метадату
             meta = {}
             for k, v in chunk.items():
                 if k not in ["code", "docstring"] and isinstance(
@@ -176,7 +172,6 @@ def main() -> int:
                 ):
                     meta[k] = v
 
-            # уникальный ID чанка
             global_idx = i + j
             chunk_id = chunk.get("chunk_id", str(global_idx))
 
@@ -198,9 +193,8 @@ def main() -> int:
 
     end_time = time.time()
 
-    
     print(f"\nDone! Successfully processed and saved {len(all_chunks)} chunks.")
-    print(f"Time: {end_time - start_time}")
+    print(f"Time: {end_time - start_time:.1f}s")
 
     return 0
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import ast
 
-from chunker.chunk import Chunk
+from RAG.src.chunker.chunk import Chunk
 
 
 class ASTChunkCollector(ast.NodeVisitor):

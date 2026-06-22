@@ -1,4 +1,4 @@
-from RAG.searcher import HybridSearcher
+from RAG.src.searcher import HybridSearcher
 
 
 def run_test():

@@ -7,7 +7,7 @@ from sentence_transformers import SentenceTransformer
 
 
 class HybridSearcher:
-    def __init__(self, db_path="RAG/chroma_db", chunks_file="RAG/data/chunks.jsonl"):
+    def __init__(self, db_path="RAG/data/chroma_db", chunks_file="RAG/data/chunks.jsonl"):
         # 1 Загрузка данных
         with open(chunks_file, "r", encoding="utf-8") as f:
             self.data = [json.loads(line) for line in f]

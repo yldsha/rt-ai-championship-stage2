@@ -4,13 +4,13 @@ Router for mapping file extensions to their corresponding syntax parsers.
 
 from pathlib import Path
 
-import chunker.utils
-from chunker.chunk import Chunk
-from chunker.parsers.cpp_parser import parse_cpp
-from chunker.parsers.go_parser import parse_go
-from chunker.parsers.java_parser import parse_java
-from chunker.parsers.jsts_parser import parse_javascript
-from chunker.parsers.py_parser import parse_python
+from RAG.src.chunker import utils as chunker_utils
+from RAG.src.chunker.chunk import Chunk
+from RAG.src.chunker.parsers.cpp_parser import parse_cpp
+from RAG.src.chunker.parsers.go_parser import parse_go
+from RAG.src.chunker.parsers.java_parser import parse_java
+from RAG.src.chunker.parsers.jsts_parser import parse_javascript
+from RAG.src.chunker.parsers.py_parser import parse_python
 
 PARSERS_MAP = {
     ".py": parse_python,
@@ -40,7 +40,7 @@ def collect_chunks_for_file(
         return []
 
     source_text = file_path.read_text(encoding="utf-8")
-    module_path = chunker.utils.normalize_module_path(
+    module_path = chunker_utils.normalize_module_path(
         file_path, source_root, project_prefix
     )
 

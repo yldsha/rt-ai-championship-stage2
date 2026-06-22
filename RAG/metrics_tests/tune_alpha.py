@@ -5,18 +5,22 @@ Runs evaluation across multiple alpha values and plots Precision@5 curve.
 """
 
 import json
+import os
+import sys
 import time
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from RAG.searcher import HybridSearcher
-from score import score_question
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from src.searcher import HybridSearcher
+from src.score import score_question
 
 
 def main():
-    questions_path = Path("accuracy_checking/eval_questions.json")
+    questions_path = Path("src/accuracy_checking/eval_questions.json")
     
     if not questions_path.exists():
         print(f"Eval questions file not found: {questions_path}")
@@ -92,7 +96,7 @@ def main():
                  weight="bold",
                  color="red")
 
-    output_img = "accuracy_checking/alpha_optimization_curve.png"
+    output_img = "metrics/alpha_optimization_curve.png"
     plt.savefig(output_img, dpi=300, bbox_inches='tight')
     plt.show()
     print(f"Graph successfully saved to: {output_img}")

@@ -1,18 +1,18 @@
 import argparse
 import json
 
-from RAG.searcher import HybridSearcher
+from RAG.src.searcher import HybridSearcher
 
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate RAG")
-    parser.add_argument("--questions", type=str, default="accuracy_checking/eval_questions.json")
-    parser.add_argument("--output", type=str, default="accuracy_checking/results.json")
+    parser.add_argument("--questions", type=str, default="RAG/src/accuracy_checking/eval_questions.json")
+    parser.add_argument("--output", type=str, default="RAG/src/accuracy_checking/results.json")
     parser.add_argument("--alpha", type=float, default=0.5)
     args = parser.parse_args()
 
     searcher = HybridSearcher(
-        db_path="RAG/chroma_db",
+        db_path="RAG/data/chroma_db",
         chunks_file="RAG/data/chunks.jsonl"
     )
 
@@ -22,7 +22,6 @@ def main():
     output_results = []
     for q in queries:
         results = searcher.search(q["query"], alpha=args.alpha, top_k=5)
-        # results — список (score, chunk_dict)
         top5 = [chunk["chunk_id"] for score, chunk in results]
         output_results.append({
             "question_id": q["question_id"],

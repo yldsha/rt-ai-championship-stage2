@@ -6,7 +6,7 @@ from pathlib import Path
 
 from tree_sitter_languages import get_language, get_parser
 
-from chunker.chunk import Chunk
+from RAG.src.chunker.chunk import Chunk
 
 CPP_QUERY = """
 (class_specifier) @class
@@ -46,9 +46,7 @@ def parse_cpp(
                     name_node = name_node.child_by_field_name("declarator")
 
         if name_node:
-            symbol = source_bytes[name_node.start_byte : name_node.end_byte].decode(
-                "utf-8"
-            )
+            symbol = source_bytes[name_node.start_byte : name_node.end_byte].decode("utf-8")
             if "(" in symbol:
                 symbol = symbol.split("(")[0].strip()
         else:
@@ -71,13 +69,10 @@ def parse_cpp(
         end_line = node.end_point[0] + 1
         code = source_bytes[node.start_byte : node.end_byte].decode("utf-8")
 
-        # docstring
         docstring = None
         prev_sibling = node.prev_sibling
         if prev_sibling and prev_sibling.type == "comment":
-            docstring = source_bytes[
-                prev_sibling.start_byte : prev_sibling.end_byte
-            ].decode("utf-8")
+            docstring = source_bytes[prev_sibling.start_byte : prev_sibling.end_byte].decode("utf-8")
 
         chunk_id = f"{module_path}:{symbol}:{start_line}"
         chunks.append(
