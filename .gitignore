@@ -1,4 +1,6 @@
 dataset/
+backups/
+logs/
 
 results.json
 *.db
