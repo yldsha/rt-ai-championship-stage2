@@ -17,10 +17,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install ruff  # Добавляем линтер
+          pip install ruff
 
       - name: Lint with Ruff
-        run: ruff check .  # Запускаем проверку всего проекта
+        run: ruff check .
 
       - name: Check score.py runs
-        run: python score.py --help
+        run: python -m RAG.src.score --help
