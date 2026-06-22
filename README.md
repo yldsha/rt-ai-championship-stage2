@@ -16,7 +16,8 @@
 - [4. Результаты и обсуждение](#4-результаты-и-обсуждение)
 - [5. Навигация по репозиторию](#5-навигация-по-репозиторию)
 - [6. Как запустить](#6-как-запустить)
-- [7. Заключение](#7-заключение)
+- [7. Примеры запросов](#7-примеры-запросов)
+- [8. Заключение](#8-заключение)
 
 ## Аннотация
 
@@ -400,8 +401,80 @@ docker compose up --build
 Docker автоматически проиндексирует кодовую базу при первом запуске и поднимет UI на `http://localhost:8501`.
 
 ---
+## 7.
+## Примеры запросов
 
-## 7. Заключение
+### Запрос 1: «как создаётся токен доступа?»
+
+| Позиция | chunk_id | Релевантность |
+|---------|----------|---------------|
+| 1 | `gymhero/security.py:create_access_token:12` | 66% |
+| 2 | `gymhero/api/routes/auth.py:login_for_access_token:19` | 66% |
+| 3 | `gymhero/api/dependencies.py:get_token:35` | 57% |
+| 4 | `gymhero/schemas/auth.py:Token:6` | 55% |
+| 5 | `gymhero/schemas/auth.py:TokenPayload:13` | 44% |
+
+**Что нашла система:** функцию создания JWT-токена `create_access_token` в `security.py`, эндпоинт логина `login_for_access_token` который её вызывает, и функцию валидации `get_token`. Система восстановила полный жизненный цикл токена — создание, выдача, проверка.
+
+---
+
+### Запрос 2: «как работает пагинация?»
+
+| Позиция | chunk_id | Релевантность |
+|---------|----------|---------------|
+| 1 | `gymhero/api/dependencies.py:get_pagination_params:19` | 80% |
+| 2 | `gymhero/api/routes/training_plan.py:get_all_training_plans:34` | 77% |
+| 3 | `gymhero/api/routes/body_part.py:fetch_body_parts:24` | 74% |
+| 4 | `gymhero/api/routes/user.py:fetch_all_users:23` | 72% |
+| 5 | `gymhero/api/routes/training_unit.py:get_all_training_units:34` | 71% |
+
+**Что нашла система:** центральную функцию `get_pagination_params` в `dependencies.py` — она принимает `skip` и `limit` из query-параметров и возвращает кортеж. Все остальные результаты — эндпоинты которые используют её через `Depends(get_pagination_params)`. Система показала и реализацию, и все места применения.
+
+---
+
+### Запрос 3: «how to authenticate user?»
+
+| Позиция | chunk_id | Релевантность |
+|---------|----------|---------------|
+| 1 | `gymhero/crud/user.py:UserCRUDRepository.authenticate_user:67` | 80% |
+| 2 | `gymhero/api/routes/user.py:update_user:175` | 74% |
+| 3 | `gymhero/crud/user.py:UserCRUDRepository:10` | 74% |
+| 4 | `gymhero/crud/user.py:UserCRUDRepository.deactivate_user:51` | 70% |
+| 5 | `gymhero/api/routes/user.py:delete_user:130` | 68% |
+
+**Что нашла система:** метод `authenticate_user` в `UserCRUDRepository` — находит пользователя по email и проверяет пароль через `verify_password`. Запрос на английском — система корректно нашла нужный код на первом месте с 80% релевантностью.
+
+---
+
+### Запрос 4: «как получить список тренировочных планов?»
+
+| Позиция | chunk_id | Релевантность |
+|---------|----------|---------------|
+| 1 | `gymhero/crud/training_plan.py:TrainingPlanCRUD.get_training_units_in_training_plan:62` | 80% |
+| 2 | `gymhero/schemas/training_plan.py:TrainingPlanInDB:22` | 78% |
+| 3 | `gymhero/api/routes/training_plan.py:get_all_training_plans:34` | 77% |
+| 4 | `gymhero/schemas/training_plan.py:TrainingPlanOut:30` | 77% |
+| 5 | `gymhero/api/routes/training_plan.py:get_training_plan_by_name:127` | 77% |
+
+**Что нашла система:** эндпоинт `get_all_training_plans` с пагинацией, схемы `TrainingPlanInDB` и `TrainingPlanOut` для сериализации ответа, и метод поиска по имени. Система показала полный стек — от API до схем данных.
+
+---
+
+### Запрос 5: «where are database settings configured?»
+
+| Позиция | chunk_id | Релевантность |
+|---------|----------|---------------|
+| 1 | `gymhero/database/session.py:build_sqlalchemy_database_url_from_settings:8` | 80% |
+| 2 | `gymhero/config.py:get_settings:65` | 73% |
+| 3 | `gymhero/config.py:Settings:11` | 65% |
+| 4 | `gymhero/database/db.py:get_ctx_db:32` | 64% |
+| 5 | `gymhero/schemas/level.py:LevelInDB:19` | 60% |
+
+**Что нашла система:** функцию построения URL подключения `build_sqlalchemy_database_url_from_settings`, класс `Settings` с переменными окружения (PostgreSQL, JWT, сервер) и фабрику `get_settings`. Пятый результат (`LevelInDB`) нерелевантен — это ожидаемое поведение системы на сложных запросах, Precision@5 не всегда равен 1.0.
+
+---
+
+## 8. Заключение
 
 В рамках работы разработана система семантического поиска по кодовой базе, сочетающая методы плотного и лексического поиска. Итоговый Precision@5 составил **0.778**, что превышает целевой порог (≥0.60). Дополнительное тестирование на Java-репозитории (10 384 чанка) подтвердило масштабируемость системы и корректность мультиязычных парсеров.
 
@@ -412,7 +485,7 @@ Docker автоматически проиндексирует кодовую б
 
 ---
 
-## Список сокращений
+## . Список сокращений
 
 | Сокращение | Расшифровка |
 |------------|-------------|
