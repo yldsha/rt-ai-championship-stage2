@@ -1,6 +1,7 @@
 dataset/
+backups/
+logs/
 
-results.json
 *.db
 chroma_db/
 
