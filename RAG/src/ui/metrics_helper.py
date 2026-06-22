@@ -7,7 +7,6 @@ import os
 import subprocess
 import sys
 
-
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 RAG_ROOT = os.path.join(PROJECT_ROOT, "RAG")
 
